@@ -206,12 +206,37 @@ def processFrame(fixation_id, frame_number, video, norm_pos_x, norm_pos_y):
     return None
 
 
-def processFixation(row, video):
+def getFixationCondition(start_frame_index, end_frame_index, df_conditions):
+    df_selection = df_conditions.loc[(df_conditions['frame'] >= start_frame_index) & (df_conditions['frame'] <= end_frame_index)]
+    df_selection = df_selection.loc[df_selection['face_present'] == True]
+
+    if len(df_selection) == 0: # early stopping
+        return (False, None, -1, -1)
+    
+    new_start_frame_index = int(np.min(df_selection['frame']))
+    new_end_frame_index = int(np.max(df_selection['frame']))
+
+    # Majority rule
+    conditions, counts = np.unique(df_selection['condition_processed'], return_counts=True)
+    max_ind = np.argmax(counts)
+    majority_condition = conditions[max_ind]
+    
+    return (True, majority_condition, new_start_frame_index, new_end_frame_index)
+
+
+
+
+def processFixation(row, video, df_conditions):
     fixation_id = row['id']
     start_frame_index = row['start_frame_index']
     end_frame_index = row['end_frame_index']
     norm_pos_x = row['norm_pos_x']
     norm_pos_y = row['norm_pos_y']
+
+    has_condition, majority_condition, new_start_frame_index, new_end_frame_index = getFixationCondition(start_frame_index, end_frame_index, df_conditions)
+
+    if not has_condition: # early stopping
+        return None    
 
     result_sequence = ['eyes', 'nose', 'mouth']
     result_counts = [0, 0, 0]
@@ -225,23 +250,30 @@ def processFixation(row, video):
 
     index_max = np.argmax(result_counts)
     if result_counts[index_max] == 0:
-        return 'none'
+        row['ROI'] = 'none'
     else:
-        return result_sequence[index_max]
+        row['ROI'] = result_sequence[index_max]
+
+    row['start_frame_index'] = new_start_frame_index
+    row['end_frame_index'] = new_end_frame_index
+    row['condition'] = majority_condition
+
+    return row
 
 
 def main():
-    dir_recording = '2021_02_06/001'
-    fn_fixations = f'{dir_recording}/exports/000/fixations.csv'
+    dir_recording = '2021_01_24/001'
+    fn_fixations = f'{dir_recording}/exports/001/fixations.csv'
     video = cv2.VideoCapture(f'{dir_recording}/world.mp4')
+    df_conditions = pd.read_excel('conditions.xlsx')
 
-    df_fixations = pd.read_csv(fn_fixations)
+    df_fixations = pd.read_csv(fn_fixations, sep=';')
     rows = list()
     for index,row in df_fixations.iterrows():
         print(f'Processing fixation {index}')
-        row['ROI'] = processFixation(row, video)
-        rows.append(row)
+        rows.append(processFixation(row, video, df_conditions))
 
+    rows = [row for row in rows if row is not None]
     df_result = pd.DataFrame(rows)
     df_result.to_excel('fixations.xlsx', index=False)
         

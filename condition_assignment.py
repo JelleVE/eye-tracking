@@ -64,7 +64,7 @@ def processFrames(data_folder):
             d['face_present'] = False
             d['condition_raw'] = 'eyes open'
 
-        cv2.imwrite(f'frames/{frame_number}.png', image)
+        cv2.imwrite(f'frames/{frame_number}.jpg', image)
         result.append(d)
 
     return result
@@ -94,11 +94,11 @@ def filterNoise(l, kernel_size):
 
 
 def main():
-    data_folder = '2021_02_06/001'
+    data_folder = '2021_01_24/001'
     
     result = processFrames(data_folder)
-    result = filterNoise(result)
-    df_result = pd.DataFrame(result, kernel_size=15) # only interested in longer periods of closed eyes
+    result = filterNoise(result, kernel_size=15)  # only interested in longer periods of closed eyes
+    df_result = pd.DataFrame(result)
     df_result.to_excel('conditions.xlsx', index=False)
     
 
