@@ -12,7 +12,7 @@ import multiprocessing
 
 from scipy.spatial import Voronoi
 from PIL import Image, ImageDraw
-import face_recognition
+# import face_recognition
 from PIPNet.pipnet import PIPNet
 
 

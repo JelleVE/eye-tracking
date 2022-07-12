@@ -6,7 +6,7 @@ import pandas as pd
 import scipy.signal
 import scipy.spatial
 
-import face_recognition
+# import face_recognition
 from PIPNet.pipnet import PIPNet
 
 
