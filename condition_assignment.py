@@ -10,7 +10,6 @@ import face_recognition
 
 
 def get_ear(eye):
-
     # compute the euclidean distances between the two sets of
     # vertical eye landmarks (x, y)-coordinates
     A = scipy.spatial.distance.euclidean(eye[1], eye[5])
