@@ -25,13 +25,23 @@ def initialize():
 @app.route("/process", methods=["GET", "POST"])
 def process():
     video = request.files['video']
+    fixations = request.files['fixations']
 
     video_path = 'tmp.mp4'
     video.save(video_path)
-    
-    result = condition_assignment_pipnet.processFrames(video_path, pipnet)
-    result = condition_assignment_pipnet.filterNoise(result, kernel_size=15)  # only interested in longer periods of closed eyes
-    df_result = pd.DataFrame(result)
-    df_result.to_excel('conditions_pipnet.xlsx', index=False)
 
-    return send_from_directory('.', 'conditions_pipnet.xlsx', as_attachment=True)
+    fixations_path = 'fixations.csv'
+    fixations.save(fixations_path)
+    
+    # conditions
+    condition_result = condition_assignment_pipnet.processFrames(video_path, pipnet)
+    condition_result = condition_assignment_pipnet.filterNoise(condition_result, kernel_size=15)  # only interested in longer periods of closed eyes
+    df_conditions = pd.DataFrame(condition_result)
+    
+    # fixations
+    df_fixations = pd.read_csv(fixations_path, sep=';')
+    df_result = main_fixation_pipnet.processFixations(video_path, df_fixations, df_conditions, pipnet)
+
+    df_result.to_excel('fixations_pipnet.xlsx')
+
+    return send_from_directory('.', 'fixations_pipnet.xlsx', as_attachment=True)

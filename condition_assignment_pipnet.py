@@ -34,8 +34,6 @@ def processFrames(video_path, pipnet):
     video_length = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
 
     for frame_number in range(video_length):
-        if frame_number > 1000: #### TODO: REMOVE
-            continue
         d = dict()
         d['frame'] = frame_number
 

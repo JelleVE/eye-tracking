@@ -234,8 +234,7 @@ def getFixationCondition(start_frame_index, end_frame_index, df_conditions):
 
 
 
-
-def processFixation(row, video, df_conditions, pipnet):
+def processFixation(row, video_path, df_conditions, pipnet):
     fixation_id = row['id']
     start_frame_index = row['start_frame_index']
     end_frame_index = row['end_frame_index']
@@ -250,7 +249,7 @@ def processFixation(row, video, df_conditions, pipnet):
     result_sequence = ['eyes', 'nose', 'mouth']
     result_counts = [0, 0, 0]
     for current_frame_index in range(new_start_frame_index, new_end_frame_index+1):
-        current_result = processFrame(pipnet, fixation_id, current_frame_index, video, norm_pos_x, norm_pos_y)
+        current_result = processFrame(pipnet, fixation_id, current_frame_index, video_path, norm_pos_x, norm_pos_y)
         if current_result is not None:
             bool_eyes, bool_nose, bool_mouth = current_result
             result_counts[0] += bool_eyes
@@ -268,6 +267,20 @@ def processFixation(row, video, df_conditions, pipnet):
     row['condition'] = majority_condition
 
     return row
+
+
+
+def processFixations(video_path, df_fixations, df_conditions, pipnet):
+    video = cv2.VideoCapture(video_path)
+
+    rows = list()
+    for index,row in df_fixations.iterrows():
+        print(f'Processing fixation {index}')
+        rows.append(processFixation(row, video, df_conditions, pipnet))
+    rows = [row for row in rows if row is not None]
+    df_result = pd.DataFrame(rows)
+
+    return df_result
 
 
 def main():
