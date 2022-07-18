@@ -1,3 +1,5 @@
+![example workflow](https://github.com/JelleVE/eye-tracking/actions/workflows/docker-publish.yml/badge.svg)
+
 * Currently used: https://github.com/1adrianb/face-alignment (uses dlib)
 * 3fabrec: https://github.com/browatbn2/3FabRec
 * LFFD: https://github.com/YonghaoHe/LFFD-A-Light-and-Fast-Face-Detector-for-Edge-Devices (no alignment?)
