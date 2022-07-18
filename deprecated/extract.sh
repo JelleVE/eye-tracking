@@ -1,1 +1,0 @@
-ffmpeg -ss 00:01:45 -i world.mp4 -t 00:00:6 -vf fps=30 frames/out%05d.png

@@ -3,3 +3,5 @@ processed/
 faces/
 tmp*
 *.mp4
+.git/
+__pychache__/
