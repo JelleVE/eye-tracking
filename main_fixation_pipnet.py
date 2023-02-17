@@ -285,7 +285,7 @@ def processFixations(video_path, df_fixations, df_conditions, pipnet):
 
 def main():
     pipnet = PIPNet()
-    dir_recording = '2021_01_24/001'
+    dir_recording = '../eye-tracking-data/2021_01_24/001'
     fn_fixations = f'{dir_recording}/exports/001/fixations.csv'
     video = cv2.VideoCapture(f'{dir_recording}/world.mp4')
     df_conditions = pd.read_excel('conditions_pipnet.xlsx')

@@ -100,7 +100,7 @@ def filterNoise(l, kernel_size):
 
 def main():
     pipnet = PIPNet()
-    data_folder = '2021_01_24/001'
+    data_folder = '../eye-tracking-data/2021_01_24/001'
     video_path = f'{data_folder}/world.mp4'
     
     result = processFrames(video_path, pipnet)
