@@ -44,7 +44,7 @@ def process():
     
     # fixations
     print('Processing fixations ...')
-    df_fixations = pd.read_csv(fixations_path, sep=';')
+    df_fixations = pd.read_csv(fixations_path)
     df_result = main_fixation_pipnet.processFixations(video_path, df_fixations, df_conditions, pipnet)
     df_result.to_excel('fixations_pipnet.xlsx')
     print('Processed fixations')
