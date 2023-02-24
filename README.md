@@ -12,8 +12,8 @@ The face mapping algorithm leverages [PIPNet](https://github.com/jhb86253817/PIP
 ## Usage
 * Clone this repository
 * Install Docker
-* Pull the Docker image using `docker pull ghcr.io/jelleve/eye-tracking:latest`
-* Run a new Docker container using `docker run -d -p 5000:5000 ghcr.io/jelleve/eye-tracking:latest`
+* Pull the Docker image using `docker pull ghcr.io/jellinap/facemap:latest`
+* Run a new Docker container using `docker run -d -p 5000:5000 ghcr.io/jellinap/facemap:latest`
 * Open the `launcher.html` file from this repository, select the relevant files and push the process button
 
 ## Notes
