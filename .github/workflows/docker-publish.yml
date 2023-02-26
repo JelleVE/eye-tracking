@@ -22,5 +22,5 @@ jobs:
 
     - name: Build and push the eyetracking application
       run: |
-        docker build . --tag ghcr.io/jellinap/faceMAP:latest
-        docker push ghcr.io/jellinap/faceMAP:latest
+        docker build . --tag ghcr.io/jellinap/facemap:latest
+        docker push ghcr.io/jellinap/facemap:latest
