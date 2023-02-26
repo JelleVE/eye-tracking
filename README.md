@@ -1,4 +1,4 @@
-![example workflow](https://github.com/JelleVE/eye-tracking/actions/workflows/docker-publish.yml/badge.svg)
+![example workflow](https://github.com/JellinaP/faceMAP/actions/workflows/docker-publish.yml/badge.svg)
 
 ## Project Description
 This solution offers an automated mapping pipeline that enables the processing of wearable eye tracking data in the context of dynamic face-to-face social interactions. Presently, the solution is tailored to data captured using Open Source PupilLabs eye trackers.
