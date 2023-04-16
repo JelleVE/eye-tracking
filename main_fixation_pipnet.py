@@ -234,15 +234,24 @@ def getFixationCondition(start_frame_index, end_frame_index, df_conditions):
 
 
 
-def processFixation(row, video_path, df_conditions, pipnet):
+def processFixation(row, video_path, df_conditions, pipnet, global_frame_start, global_frame_end):
     fixation_id = row['id']
     start_frame_index = row['start_frame_index']
     end_frame_index = row['end_frame_index']
     norm_pos_x = row['norm_pos_x']
     norm_pos_y = row['norm_pos_y']
 
-    has_condition, majority_condition, new_start_frame_index, new_end_frame_index = getFixationCondition(start_frame_index, end_frame_index, df_conditions)
+    # early stopping cases
+    if end_frame_index <= global_frame_start:
+        return None
+    if start_frame_index < global_frame_start and end_frame_index > global_frame_start:
+        return None
+    if start_frame_index >= global_frame_end:
+        return None 
+    if start_frame_index < global_frame_end and end_frame_index > global_frame_end:
+        return None
 
+    has_condition, majority_condition, new_start_frame_index, new_end_frame_index = getFixationCondition(start_frame_index, end_frame_index, df_conditions)
     if not has_condition: # early stopping
         return None    
 
@@ -270,13 +279,13 @@ def processFixation(row, video_path, df_conditions, pipnet):
 
 
 
-def processFixations(video_path, df_fixations, df_conditions, pipnet):
+def processFixations(video_path, df_fixations, df_conditions, pipnet, global_frame_start, global_frame_end):
     video = cv2.VideoCapture(video_path)
 
     rows = list()
     for index,row in df_fixations.iterrows():
         print(f'Processing fixation {index}')
-        rows.append(processFixation(row, video, df_conditions, pipnet))
+        rows.append(processFixation(row, video, df_conditions, pipnet, global_frame_start, global_frame_end))
     rows = [row for row in rows if row is not None]
     df_result = pd.DataFrame(rows)
 

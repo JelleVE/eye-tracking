@@ -10,6 +10,20 @@ import scipy.spatial
 from PIPNet.pipnet import PIPNet
 
 
+def getStartAndEndFrame(video_path, starting_hours, starting_minutes, starting_seconds, ending_hours, ending_minutes, ending_seconds):
+    video = cv2.VideoCapture(video_path)
+    video_length = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+    video_fps = video.get(cv2.CAP_PROP_FPS)
+
+    frame_start = int((starting_hours*60*60 + starting_minutes*60 + starting_seconds) * video_fps)
+    frame_end = int((ending_hours*60*60 + ending_minutes*60 + ending_seconds) * video_fps)
+
+    frame_start = max(0, frame_start - 10*video_fps)
+    frame_end = min(video_length, frame_end + 10*video_fps)
+
+    return frame_start, frame_end
+
+
 def get_ear(eye):
     # compute the euclidean distances between the two sets of
     # vertical eye landmarks (x, y)-coordinates
@@ -28,12 +42,15 @@ def get_ear(eye):
     return ear
 
 
-def processFrames(video_path, pipnet):
+def processFrames(video_path, pipnet, frame_start, frame_end):
     result = list()
     video = cv2.VideoCapture(video_path)
     video_length = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
 
     for frame_number in range(video_length):
+        if frame_number < frame_start or frame_number > frame_end: # don't process frames out of specified range
+            continue
+
         d = dict()
         d['frame'] = frame_number
 

@@ -112,8 +112,6 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
         for face_detection in face_detections:
             landmarks = pipnet.detectLandmarks(image, face_detection)
 
-        print('testing')
-
         # fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device='cpu')
         # input = image#io.imread('tmp3.jpg')
         # preds = fa.get_landmarks(input)[-1]
