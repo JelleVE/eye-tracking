@@ -21,11 +21,18 @@ def initialize():
     pipnet = PIPNet()
 
 
-
 @app.route("/process", methods=["GET", "POST"])
 def process():
     video = request.files['video']
     fixations = request.files['fixations']
+
+    starting_hours = processTime(request.form['starting-hours'])
+    starting_minutes = processTime(request.form['starting-minutes'])
+    starting_seconds = processTime(request.form['starting-seconds'])
+
+    ending_hours = processTime(request.form['ending-hours'])
+    ending_minutes = processTime(request.form['ending-minutes'])
+    ending_seconds = processTime(request.form['ending-seconds'])
 
     video_path = 'tmp.mp4'
     video.save(video_path)
@@ -37,7 +44,8 @@ def process():
     
     # conditions
     print('Processing conditions ...')
-    condition_result = condition_assignment_pipnet.processFrames(video_path, pipnet)
+    frame_start, frame_end = condition_assignment_pipnet.getStartAndEndFrame(video_path, starting_hours, starting_minutes, starting_seconds, ending_hours, ending_minutes, ending_seconds)
+    condition_result = condition_assignment_pipnet.processFrames(video_path, pipnet, frame_start, frame_end)
     condition_result = condition_assignment_pipnet.filterNoise(condition_result, kernel_size=15)  # only interested in longer periods of closed eyes
     df_conditions = pd.DataFrame(condition_result)
     print('Processed conditions')
@@ -45,8 +53,17 @@ def process():
     # fixations
     print('Processing fixations ...')
     df_fixations = pd.read_csv(fixations_path)
-    df_result = main_fixation_pipnet.processFixations(video_path, df_fixations, df_conditions, pipnet)
+    print(df_fixations)
+    df_result = main_fixation_pipnet.processFixations(video_path, df_fixations, df_conditions, pipnet, frame_start, frame_end)
     df_result.to_excel('fixations_pipnet.xlsx')
     print('Processed fixations')
 
     return send_from_directory('.', 'fixations_pipnet.xlsx', as_attachment=True)
+
+
+def processTime(t):
+    if t == '':
+        return 0
+
+    t = int(t)
+    return t

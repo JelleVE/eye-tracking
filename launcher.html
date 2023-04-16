@@ -1,13 +1,46 @@
 <form action="http://localhost:5000/process" method="post" enctype="multipart/form-data"> 
 <div>
-  <label for="file">world.mp4</label> 
+  <label for="video">world.mp4</label> 
   <input id="video" type="file" name="video"> 
 </div>
+
 <div>
-  <label for="file">fixations.csv</label> 
+  <label for="fixations">fixations.csv</label> 
   <input id="fixations" type="file" name="fixations"> 
  </div>
-  <button type="submit" name="submit"> 
+
+<br />
+
+<div>
+    <span>Starting time: hours</span>
+    <span><input id="starting-hours" name="starting-hours" type="text" placeholder="0"/></span>
+</div>
+<div>
+    <span>Starting time: minutes</span>
+    <span><input id="starting-minutes" name="starting-minutes" type="text" placeholder="0"/></span>
+</div>
+<div>
+    <span>Starting time: seconds</span>
+    <span><input id="starting seconds" name="starting-seconds" type="text" placeholder="0"/></span>
+</div>
+
+<br />
+
+<div>
+    <span>Ending time: hours</span>
+    <span><input id="ending-hours" name="ending-hours" type="text" placeholder="0"/></span>
+</div>
+<div>
+    <span>Ending time: minutes</span>
+    <span><input id="ending-minutes" name="ending-minutes" type="text" placeholder="0"/></span>
+</div>
+<div>
+    <span>Ending time: seconds</span>
+    <span><input id="ending-seconds" name="ending-seconds" type="text" placeholder="0"/></span>
+</div>
+
+
+ <button type="submit" name="submit"> 
 Start processing
 </button> 
 </form> 
