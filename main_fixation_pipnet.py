@@ -98,7 +98,7 @@ def voronoi_finite_polygons_2d(vor, radius=None):
 
 
 
-def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_y):
+def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_y, df_conditions):
     video.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
     success, image = video.read()
 
@@ -116,26 +116,23 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     r = 5
     draw.ellipse((pos_x-r, pos_y-r, pos_x+r, pos_y+r), width=3)
     
+    # Get cached data
+    rows = df_conditions.loc[df_conditions['frame'] == frame_number]
+    assert len(rows) == 1
+    row = rows.iloc[0]
+    if row['face_present'] == False:
+        return False, False, False # early stopping
     # Draw landmarks
-    face_detections = pipnet.detectFaces(image)
-    assert len(face_detections) == 1
-    face_landmarks = pipnet.detectLandmarks(image, face_detections[0])
-
-    # face_landmarks = face_recognition.face_landmarks(image)
-
-    points_eyes = np.concatenate([face_landmarks['eye_left'], face_landmarks['eye_right'], face_landmarks['eyebrow_left'], face_landmarks['eyebrow_right']])
-    points_nose = face_landmarks['nose']
-    points_mouth = face_landmarks['lips']
-
-    # points_eyes = face_landmarks[0]['left_eyebrow'] + face_landmarks[0]['right_eyebrow'] + face_landmarks[0]['left_eye'] + face_landmarks[0]['right_eye']
-    # points_nose = face_landmarks[0]['nose_tip'] + face_landmarks[0]['nose_bridge']
-    # points_mouth = face_landmarks[0]['top_lip'] + face_landmarks[0]['bottom_lip']
+    #face_landmarks = pipnet.detectLandmarks(image, face_detections[0])
+    # points_eyes = np.concatenate([face_landmarks['eye_left'], face_landmarks['eye_right'], face_landmarks['eyebrow_left'], face_landmarks['eyebrow_right']])
+    # points_nose = face_landmarks['nose']
+    # points_mouth = face_landmarks['lips']
 
     # Define points
-    mean_left_eye = np.mean(face_landmarks['eye_left'], axis=0)
-    mean_right_eye = np.mean(face_landmarks['eye_right'], axis=0)
-    mean_nose = np.mean(face_landmarks['nose'], axis=0)
-    mean_mouth = np.mean(face_landmarks['lips'], axis=0)
+    mean_left_eye = row['mean_left_eye']
+    mean_right_eye = row['mean_right_eye']
+    mean_nose = row['mean_nose']
+    mean_mouth = row['mean_mouth']
     mean_points = np.vstack([mean_left_eye, mean_right_eye, mean_nose, mean_mouth])
 
     # Voronoi
@@ -197,22 +194,16 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
 
     p_fixation = shapely.geometry.Point([pos_x, pos_y])
 
-    bool_eyes = p_fixation.intersects(roi_mapping['left_eye']['intersected_poly']) or p_fixation.intersects(roi_mapping['right_eye']['intersected_poly'])
-    bool_nose = p_fixation.intersects(roi_mapping['nose']['intersected_poly'])
-    bool_mouth = p_fixation.intersects(roi_mapping['mouth']['intersected_poly'])
-
-    # for facial_feature in face_landmarks[0].keys():
-    #     draw.line(face_landmarks[0][facial_feature], width=5)
+    bool_eyes = ('left_eye' in roi_mapping.keys() and p_fixation.intersects(roi_mapping['left_eye']['intersected_poly'])) or ('right_eye' in roi_mapping.keys() and p_fixation.intersects(roi_mapping['right_eye']['intersected_poly']))
+    bool_nose = 'nose' in roi_mapping.keys() and p_fixation.intersects(roi_mapping['nose']['intersected_poly'])
+    bool_mouth = 'mouth' in roi_mapping.keys() and p_fixation.intersects(roi_mapping['mouth']['intersected_poly'])
 
     fn_out = f'processed/{fixation_id}/{frame_number}.png'
     os.makedirs(os.path.dirname(fn_out), exist_ok=True)
-    pil_image.save(fn_out)
+    # pil_image.save(fn_out)
 
     return bool_eyes, bool_nose, bool_mouth
-    # except IndexError:
-    #     pass
 
-    return None
 
 
 def getFixationCondition(start_frame_index, end_frame_index, df_conditions):
@@ -258,7 +249,7 @@ def processFixation(row, video_path, df_conditions, pipnet, global_frame_start, 
     result_sequence = ['eyes', 'nose', 'mouth']
     result_counts = [0, 0, 0]
     for current_frame_index in range(new_start_frame_index, new_end_frame_index+1):
-        current_result = processFrame(pipnet, fixation_id, current_frame_index, video_path, norm_pos_x, norm_pos_y)
+        current_result = processFrame(pipnet, fixation_id, current_frame_index, video_path, norm_pos_x, norm_pos_y, df_conditions)
         if current_result is not None:
             bool_eyes, bool_nose, bool_mouth = current_result
             result_counts[0] += bool_eyes

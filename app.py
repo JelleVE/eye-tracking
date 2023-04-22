@@ -46,14 +46,15 @@ def process():
     print('Processing conditions ...')
     frame_start, frame_end = condition_assignment_pipnet.getStartAndEndFrame(video_path, starting_hours, starting_minutes, starting_seconds, ending_hours, ending_minutes, ending_seconds)
     condition_result = condition_assignment_pipnet.processFrames(video_path, pipnet, frame_start, frame_end)
-    condition_result = condition_assignment_pipnet.filterNoise(condition_result, kernel_size=15)  # only interested in longer periods of closed eyes
+    condition_result = condition_assignment_pipnet.filterNoiseFace(condition_result, kernel_size=3)  # only interested in longer periods of closed eyes
+    condition_result = condition_assignment_pipnet.filterNoiseEyes(condition_result, kernel_size=15)  # only interested in longer periods of closed eyes
     df_conditions = pd.DataFrame(condition_result)
+    df_conditions.to_excel('conditions_pipnet.xlsx')
     print('Processed conditions')
     
     # fixations
     print('Processing fixations ...')
     df_fixations = pd.read_csv(fixations_path)
-    print(df_fixations)
     df_result = main_fixation_pipnet.processFixations(video_path, df_fixations, df_conditions, pipnet, frame_start, frame_end)
     df_result.to_excel('fixations_pipnet.xlsx')
     print('Processed fixations')
