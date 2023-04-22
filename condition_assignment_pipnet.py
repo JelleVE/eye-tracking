@@ -59,16 +59,16 @@ def processFrames(video_path, pipnet, frame_start, frame_end):
 
         video.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
         success, image = video.read()
-
-        # face_landmarks = face_recognition.face_landmarks(image)
+        image = cv2.resize(image, (640, 360))
 
         face_detections = pipnet.detectFaces(image)
-        assert len(face_detections) == 0 or len(face_detections) == 1
-
-        if len(face_detections) == 1:
-            face_landmarks = pipnet.detectLandmarks(image, face_detections[0])
+        if len(face_detections) == 0:
+            d['face_present'] = False
+            d['condition_raw'] = 'eyes open'
 
         if len(face_detections) > 0:
+            max_face_detection = max(face_detections, key=lambda x:x[1]) # example output: [['face', 0.99671006, 351, 435, 231, 314]]
+            face_landmarks = pipnet.detectLandmarks(image, max_face_detection)
             left_eye = face_landmarks['eye_left']
             right_eye = face_landmarks['eye_right']
 
@@ -76,16 +76,18 @@ def processFrames(video_path, pipnet, frame_start, frame_end):
             ear_right = get_ear(right_eye)
             
             closed = ear_left < 0.22 and ear_right < 0.22
-
             if closed:
                 d['face_present'] = True
                 d['condition_raw'] = 'eyes closed'
             else:
                 d['face_present'] = True
                 d['condition_raw'] = 'eyes open'
-        else:
-            d['face_present'] = False
-            d['condition_raw'] = 'eyes open'
+
+            # get data for Voronoi in later step
+            d['mean_left_eye'] = np.mean(face_landmarks['eye_left'], axis=0)
+            d['mean_right_eye'] = np.mean(face_landmarks['eye_right'], axis=0)
+            d['mean_nose'] = np.mean(face_landmarks['nose'], axis=0)
+            d['mean_mouth'] = np.mean(face_landmarks['lips'], axis=0)
 
         # cv2.imwrite(f'frames/{frame_number}.jpg', image)
         result.append(d)
@@ -93,7 +95,55 @@ def processFrames(video_path, pipnet, frame_start, frame_end):
     return result
 
 
-def filterNoise(l, kernel_size):
+
+def filterNoiseFace(l, kernel_size):
+    mapping = {
+        True: 1,
+        False: 0,
+    }
+    inv_map = {v: k for k, v in mapping.items()}
+
+    signal = np.array([mapping[el['face_present']] for el in l], int)
+    signal_processed = scipy.signal.medfilt(signal, kernel_size=kernel_size)
+
+    result = list()
+    zipped = list(zip(l, signal_processed))
+
+    for i, (el, sig_proc) in enumerate(zipped):
+        el['face_present'] = inv_map[sig_proc]
+        if el['face_present'] == False:
+            el['condition_raw'] = 'eyes open'
+            el['mean_left_eye'] = None
+            el['mean_right_eye'] = None
+            el['mean_nose'] = None
+            el['mean_mouth'] = None
+
+        elif el['face_present'] == True:
+            if ('mean_left_eye' not in el.keys() or el['mean_left_eye'] is None) or \
+                     ('mean_right_eye' not in el.keys() or el['mean_right_eye'] is None) or \
+                     ('mean_nose' not in el.keys() or el['mean_nose'] is None) or \
+                     ('mean_mouth' not in el.keys() or el['mean_mouth'] is None):
+                if i > 0:
+                    prev_el = zipped[i-1][0]
+                    if 'mean_left_eye' in prev_el.keys() and prev_el['mean_left_eye'] is not None:
+                        el['mean_left_eye'] = prev_el['mean_left_eye']
+                        el['mean_right_eye'] = prev_el['mean_right_eye']
+                        el['mean_nose'] = prev_el['mean_nose']
+                        el['mean_mouth'] = prev_el['mean_mouth']
+                if i < len(l)-1:
+                    next_el = zipped[i+1][0]
+                    if 'mean_left_eye' in next_el.keys() and next_el['mean_left_eye'] is not None:
+                        el['mean_left_eye'] = next_el['mean_left_eye']
+                        el['mean_right_eye'] = next_el['mean_right_eye']
+                        el['mean_nose'] = next_el['mean_nose']
+                        el['mean_mouth'] = next_el['mean_mouth']
+
+        result.append(el)
+    return result
+
+
+
+def filterNoiseEyes(l, kernel_size):
     """
     Map eyes closed to 1, eyes open & no face to 0.
     Use a median filter to do (initial?) filtering.
