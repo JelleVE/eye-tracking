@@ -88,8 +88,9 @@ def processFrames(video_path, pipnet, frame_start, frame_end):
             d['mean_right_eye'] = np.mean(face_landmarks['eye_right'], axis=0)
             d['mean_nose'] = np.mean(face_landmarks['nose'], axis=0)
             d['mean_mouth'] = np.mean(face_landmarks['lips'], axis=0)
+            d['face_landmarks'] = face_landmarks
 
-        # cv2.imwrite(f'frames/{frame_number}.jpg', image)
+        #cv2.imwrite(f'frames/{frame_number}.jpg', image)
         result.append(d)
 
     return result
@@ -130,6 +131,7 @@ def filterNoiseFace(l, kernel_size):
                         el['mean_right_eye'] = prev_el['mean_right_eye']
                         el['mean_nose'] = prev_el['mean_nose']
                         el['mean_mouth'] = prev_el['mean_mouth']
+                        el['face_landmarks'] = prev_el['face_landmarks']
                 if i < len(l)-1:
                     next_el = zipped[i+1][0]
                     if 'mean_left_eye' in next_el.keys() and next_el['mean_left_eye'] is not None:
@@ -137,6 +139,7 @@ def filterNoiseFace(l, kernel_size):
                         el['mean_right_eye'] = next_el['mean_right_eye']
                         el['mean_nose'] = next_el['mean_nose']
                         el['mean_mouth'] = next_el['mean_mouth']
+                        el['face_landmarks'] = next_el['face_landmarks']
 
         result.append(el)
     return result
