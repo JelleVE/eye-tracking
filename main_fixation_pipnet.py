@@ -146,7 +146,7 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     right = (int(landmarks['jaw'][32][0]),
                 int(landmarks['nose'][1][1]))
     center = (int(landmarks['jaw'][0][0] + (landmarks['jaw'][32][0] - landmarks['jaw'][0][0])/2), 
-                int(landmarks['nose'][1][1]))
+                int(landmarks['nose'][4][1]))
 
     ellipse = Ellipse((int(landmarks['jaw'][0][0] + (landmarks['jaw'][32][0] - landmarks['jaw'][0][0])/2), int(landmarks['nose'][1][1])),
                          int((landmarks['jaw'][32][0] - landmarks['jaw'][0][0])), 
@@ -215,6 +215,23 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
 
         c = shapely.geometry.Point(relevant_mp).buffer(35)
         roi_mapping[region]['intersected_poly'] = c.intersection(relevant_poly)
+
+    # Create upper ROI
+    eyes = shapely.ops.unary_union([roi_mapping['left_eye']['intersected_poly'], roi_mapping['right_eye']['intersected_poly']])
+    upper = eyes.convex_hull
+    upper = shapely.affinity.scale(upper, xfact=1.1, yfact=1.1, zfact=1.1, origin='center')
+    upper_vertices = np.array(list(zip(*upper.exterior.coords.xy)))
+    upper_vertices = upper_vertices[upper_vertices[:,1] < min(left[1], right[1])-5] # filter
+    # upper_vertices[0,:] = left
+    # upper_vertices[-1,:] = right
+    # upper_vertices = np.vstack([upper_vertices, center])
+    rolled_vertices = np.roll(upper_vertices, 1, axis=0)
+    
+    min_ind = np.argmin((rolled_vertices - upper_vertices)[:,0])
+    upper_vertices[min_ind-1,:] = left
+    upper_vertices[min_ind,:] = right
+    upper_vertices = np.insert(upper_vertices, min_ind, center, axis=0)
+    upper = shapely.geometry.Polygon(upper_vertices)
 
     # Draw polys
     for region in roi_mapping.keys():

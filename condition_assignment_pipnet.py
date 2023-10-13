@@ -19,7 +19,11 @@ def getStartAndEndFrame(video_path, starting_hours, starting_minutes, starting_s
     frame_end = int((ending_hours*60*60 + ending_minutes*60 + ending_seconds) * video_fps)
 
     frame_start = max(0, frame_start - 10*video_fps)
-    frame_end = min(video_length, frame_end + 10*video_fps)
+
+    if frame_end == 0:
+        frame_end = video_length
+    else:
+        frame_end = min(video_length, frame_end + 10*video_fps)
 
     return frame_start, frame_end
 
