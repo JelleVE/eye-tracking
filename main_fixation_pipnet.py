@@ -126,6 +126,7 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     row = rows.iloc[0]
     if row['face_present'] == False:
         return False, False, False, False, False # early stopping
+
     # Draw landmarks
     #face_landmarks = pipnet.detectLandmarks(image, face_detections[0])
     # points_eyes = np.concatenate([face_landmarks['eye_left'], face_landmarks['eye_right'], face_landmarks['eyebrow_left'], face_landmarks['eyebrow_right']])
@@ -142,32 +143,13 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
 
     # Define upper ellipse
     left = (int(landmarks['jaw'][0][0]), 
-                int(landmarks['nose'][1][1]))
-    right = (int(landmarks['jaw'][32][0]),
-                int(landmarks['nose'][1][1]))
-    center = (int(landmarks['jaw'][0][0] + (landmarks['jaw'][32][0] - landmarks['jaw'][0][0])/2), 
-                int(landmarks['nose'][4][1]))
-
-    ellipse = Ellipse((int(landmarks['jaw'][0][0] + (landmarks['jaw'][32][0] - landmarks['jaw'][0][0])/2), int(landmarks['nose'][1][1])),
-                         int((landmarks['jaw'][32][0] - landmarks['jaw'][0][0])), 
-                         2*int(landmarks['jaw'][16][1] - landmarks['nose'][1][1]), 
-                         0)
-
-    upper_vertices = ellipse.get_verts()
-    upper_vertices = upper_vertices[upper_vertices[:,1] < center[1]] # filter
-    upper_vertices = upper_vertices[upper_vertices[:, 0].argsort()] # order by x-value
-    upper_vertices[0,:] = left
-    upper_vertices[-1,:] = right
-    upper_vertices = np.vstack([upper_vertices, center])
-    upper = shapely.geometry.Polygon(upper_vertices)
-
-    # Define lower ellipse
-    lower_vertices = landmarks['jaw']
-    lower_vertices[0,:] = left
-    lower_vertices[-1,:] = right
-    lower_vertices = np.vstack([lower_vertices, center])
-    lower = shapely.geometry.Polygon(lower_vertices)
-
+                int(landmarks['jaw'][0][1]))
+    right = (int(landmarks['jaw'][-1][0]),
+                int(landmarks['jaw'][-1][1]))
+    # center = (int(landmarks['jaw'][0][0] + (landmarks['jaw'][32][0] - landmarks['jaw'][0][0])/2), 
+    #             int(landmarks['nose'][4][1]))
+    center = (int(landmarks['nose'][6][0]), 
+                int(landmarks['nose'][6][1]))
 
     # Voronoi
     voronoi_polys = list()
@@ -216,21 +198,71 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
         c = shapely.geometry.Point(relevant_mp).buffer(35)
         roi_mapping[region]['intersected_poly'] = c.intersection(relevant_poly)
 
+
+    # Create lower ROI
+    lower_vertices = landmarks['jaw']
+    lower_vertices[0,:] = left # doesn't change anything
+    lower_vertices[-1,:] = right # doesn't change anything
+    lower_vertices = np.vstack([lower_vertices, center])
+    lower = shapely.geometry.Polygon(lower_vertices)
+
+
     # Create upper ROI
     eyes = shapely.ops.unary_union([roi_mapping['left_eye']['intersected_poly'], roi_mapping['right_eye']['intersected_poly']])
     upper = eyes.convex_hull
     upper = shapely.affinity.scale(upper, xfact=1.1, yfact=1.1, zfact=1.1, origin='center')
     upper_vertices = np.array(list(zip(*upper.exterior.coords.xy)))
-    upper_vertices = upper_vertices[upper_vertices[:,1] < min(left[1], right[1])-5] # filter
-    # upper_vertices[0,:] = left
-    # upper_vertices[-1,:] = right
-    # upper_vertices = np.vstack([upper_vertices, center])
-    rolled_vertices = np.roll(upper_vertices, 1, axis=0)
+
+    # Perform additional early quitting
+    # Check for "squishy face"
+    # https://github.com/JellinaP/faceMAP/issues/20
+    dist = np.max(lower_vertices[:,1]) - max(0, np.min(upper_vertices[:,1]))
+    if dist < 100:
+        return False, False, False, False, False
+
+    # Can probably be made more efficient
+    # Idea: make a split between left and right, delete lower half
+    #       of ellipse and find remaining lowest points (on both sides)
+    #       these can then later be used to find the "split point"
+    centroid = upper.centroid
+    left_max_y = -1e10
+    right_max_y = -1e10
+    upper_list = list()
+    for row in upper_vertices:
+        if row[0] <= centroid.x:
+            if row[1] > left[1]-10:
+                continue
+            else:
+                if row[1] > left_max_y:
+                    left_max_y = row[1]
+        elif row[0] > centroid.x:
+            if row[1] > right[1]-10:
+                continue
+            else:
+                if row[1] < right_max_y:
+                    right_max_y = row[1]
+        upper_list.append(row)
     
-    min_ind = np.argmin((rolled_vertices - upper_vertices)[:,0])
-    upper_vertices[min_ind-1,:] = left
-    upper_vertices[min_ind,:] = right
-    upper_vertices = np.insert(upper_vertices, min_ind, center, axis=0)
+    upper_vertices = np.array(upper_list)
+    mask = (upper_vertices[:, 0] < centroid.x) & (upper_vertices[:,1] == left_max_y)
+    assert np.sum(mask) == 1
+    index = np.where(mask==True)[0][0]
+
+    upper_a = upper_vertices[:index+1,:]
+    upper_c = upper_vertices[index+1:,:]
+    upper_b = np.array([left,center,right])
+    upper_vertices = np.vstack([upper_a, upper_b, upper_c])
+
+    # upper_vertices = upper_vertices[upper_vertices[:,1] < min(left[1], right[1])-5] # filter
+    # # upper_vertices[0,:] = left
+    # # upper_vertices[-1,:] = right
+    # # upper_vertices = np.vstack([upper_vertices, center])
+    # rolled_vertices = np.roll(upper_vertices, 1, axis=0)
+    
+    # min_ind = np.argmin((rolled_vertices - upper_vertices)[:,0])
+    # upper_vertices[min_ind-1,:] = left
+    # upper_vertices[min_ind,:] = right
+    # upper_vertices = np.insert(upper_vertices, min_ind, center, axis=0)
     upper = shapely.geometry.Polygon(upper_vertices)
 
     # Draw polys
@@ -269,7 +301,7 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
 
     fn_out = f'processed/{fixation_id}/{frame_number}.png'
     os.makedirs(os.path.dirname(fn_out), exist_ok=True)
-    #pil_image.save(fn_out)
+    pil_image.save(fn_out)
 
     return bool_eyes, bool_nose, bool_mouth, bool_upper, bool_lower
 
