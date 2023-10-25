@@ -100,7 +100,7 @@ def voronoi_finite_polygons_2d(vor, radius=None):
 
 
 
-def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_y, df_conditions):
+def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_y, df_conditions, participant_id):
     video.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
     success, image = video.read()
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -299,7 +299,7 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     bool_upper = p_fixation.intersects(upper)
     bool_lower = p_fixation.intersects(lower)
 
-    fn_out = f'processed/{fixation_id}/{frame_number}.png'
+    fn_out = f'processed/{participant_id}/{fixation_id}/{frame_number}.png'
     os.makedirs(os.path.dirname(fn_out), exist_ok=True)
     pil_image.save(fn_out)
 
@@ -326,7 +326,7 @@ def getFixationCondition(start_frame_index, end_frame_index, df_conditions):
 
 
 
-def processFixation(row, video_path, df_conditions, pipnet, global_frame_start, global_frame_end):
+def processFixation(row, video_path, df_conditions, pipnet, global_frame_start, global_frame_end, participant_id):
     fixation_id = row['id']
     start_frame_index = row['start_frame_index']
     end_frame_index = row['end_frame_index']
@@ -352,7 +352,7 @@ def processFixation(row, video_path, df_conditions, pipnet, global_frame_start, 
     result_counts = [0, 0, 0]
     result_counts2 = [0, 0]
     for current_frame_index in range(new_start_frame_index, new_end_frame_index+1):
-        current_result = processFrame(pipnet, fixation_id, current_frame_index, video_path, norm_pos_x, norm_pos_y, df_conditions)
+        current_result = processFrame(pipnet, fixation_id, current_frame_index, video_path, norm_pos_x, norm_pos_y, df_conditions, participant_id)
         if current_result is not None:
             bool_eyes, bool_nose, bool_mouth, bool_upper, bool_lower = current_result
             result_counts[0] += bool_eyes
@@ -364,17 +364,17 @@ def processFixation(row, video_path, df_conditions, pipnet, global_frame_start, 
 
     index_max = np.argmax(result_counts)
     if result_counts[index_max] == 0:
-        row['ROI'] = 'none'
+        row['AOI_Voronoi'] = 'none'
     else:
-        row['ROI'] = result_sequence[index_max]
+        row['AOI_Voronoi'] = result_sequence[index_max]
 
     # --
 
     index_max = np.argmax(result_counts2)
     if result_counts2[index_max] == 0:
-        row['ROI2'] = 'none'
+        row['AOI_upper_lower'] = 'none'
     else:
-        row['ROI2'] = result_sequence2[index_max]
+        row['AOI_upper_lower'] = result_sequence2[index_max]
 
     row['start_frame_index'] = new_start_frame_index
     row['end_frame_index'] = new_end_frame_index
@@ -384,13 +384,13 @@ def processFixation(row, video_path, df_conditions, pipnet, global_frame_start, 
 
 
 
-def processFixations(video_path, df_fixations, df_conditions, pipnet, global_frame_start, global_frame_end):
+def processFixations(video_path, df_fixations, df_conditions, pipnet, global_frame_start, global_frame_end, participant_id):
     video = cv2.VideoCapture(video_path)
 
     rows = list()
     for index,row in df_fixations.iterrows():
         print(f'Processing fixation {index}')
-        rows.append(processFixation(row, video, df_conditions, pipnet, global_frame_start, global_frame_end))
+        rows.append(processFixation(row, video, df_conditions, pipnet, global_frame_start, global_frame_end, participant_id))
     rows = [row for row in rows if row is not None]
     df_result = pd.DataFrame(rows)
 
