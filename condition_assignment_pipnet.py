@@ -1,3 +1,4 @@
+import os
 import cv2
 import json
 
@@ -94,7 +95,9 @@ def processFrames(video_path, pipnet, frame_start, frame_end):
             d['mean_mouth'] = np.mean(face_landmarks['lips'], axis=0)
             d['face_landmarks'] = face_landmarks
 
-        #cv2.imwrite(f'frames/{frame_number}.jpg', image)
+        fn_out = f'frames/{frame_number}.jpg'
+        os.makedirs(os.path.dirname(fn_out), exist_ok=True)
+        #cv2.imwrite(fn_out, image)
         result.append(d)
 
     return result

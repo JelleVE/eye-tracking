@@ -1,3 +1,4 @@
+import os
 import cv2
 import json
 import pandas as pd
@@ -23,6 +24,9 @@ def initialize():
 
 @app.route("/process", methods=["GET", "POST"])
 def process():
+    os.system('rm -r processed/')
+    os.system('rm -r frames/')
+
     video = request.files['video']
     fixations = request.files['fixations']
 
