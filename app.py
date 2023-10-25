@@ -24,8 +24,8 @@ def initialize():
 
 @app.route("/process", methods=["GET", "POST"])
 def process():
-    os.system('rm -r processed/')
-    os.system('rm -r frames/')
+    assert request.form['participant'] != ''
+    participant_id = request.form['participant']
 
     video = request.files['video']
     fixations = request.files['fixations']
@@ -59,11 +59,11 @@ def process():
     # fixations
     print('Processing fixations ...')
     df_fixations = pd.read_csv(fixations_path)
-    df_result = main_fixation_pipnet.processFixations(video_path, df_fixations, df_conditions, pipnet, frame_start, frame_end)
-    df_result.to_excel('fixations_pipnet.xlsx')
+    df_result = main_fixation_pipnet.processFixations(video_path, df_fixations, df_conditions, pipnet, frame_start, frame_end, participant_id)
+    df_result.to_excel(f'mapping_{participant_id}.xlsx')
     print('Processed fixations')
 
-    return send_from_directory('.', 'fixations_pipnet.xlsx', as_attachment=True)
+    return send_from_directory('.', f'mapping_{participant_id}.xlsx', as_attachment=True)
 
 
 def processTime(t):
