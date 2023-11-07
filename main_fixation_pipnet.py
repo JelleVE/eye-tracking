@@ -125,13 +125,8 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     assert len(rows) == 1
     row = rows.iloc[0]
     if row['face_present'] == False:
-        return False, False, False, False, False # early stopping
+        return False, False, False, False, False, False # early stopping
 
-    # Draw landmarks
-    #face_landmarks = pipnet.detectLandmarks(image, face_detections[0])
-    # points_eyes = np.concatenate([face_landmarks['eye_left'], face_landmarks['eye_right'], face_landmarks['eyebrow_left'], face_landmarks['eyebrow_right']])
-    # points_nose = face_landmarks['nose']
-    # points_mouth = face_landmarks['lips']
 
     # Define points
     mean_left_eye = row['mean_left_eye']
@@ -140,16 +135,6 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     mean_mouth = row['mean_mouth']
     mean_points = np.vstack([mean_left_eye, mean_right_eye, mean_nose, mean_mouth])
     landmarks = row['face_landmarks']
-
-    # Define upper ellipse
-    # left = (int(landmarks['jaw'][0][0]), 
-    #             int(landmarks['jaw'][0][1]))
-    # right = (int(landmarks['jaw'][-1][0]),
-    #             int(landmarks['jaw'][-1][1]))
-    # # center = (int(landmarks['jaw'][0][0] + (landmarks['jaw'][32][0] - landmarks['jaw'][0][0])/2), 
-    # #             int(landmarks['nose'][4][1]))
-    # center = (int(landmarks['nose'][6][0]), 
-    #             int(landmarks['nose'][6][1]))
 
     # Voronoi
     voronoi_polys = list()
@@ -201,9 +186,6 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
 
     # Create lower ROI
     jaw_vertices = landmarks['jaw']
-    #lower_vertices[0,:] = left # doesn't change anything
-    #lower_vertices[-1,:] = right # doesn't change anything
-    #lower_vertices = np.vstack([lower_vertices, center])
     jaw_poly = shapely.geometry.Polygon(jaw_vertices)
 
 
@@ -217,7 +199,7 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     #  https://github.com/JellinaP/faceMAP/issues/20
     dist = np.max(jaw_vertices[:,1]) - max(0, np.min(np.array(list(zip(*eyes_poly.exterior.coords.xy)))[:,1]))
     if dist < 100:
-        return False, False, False, False, False
+        return False, False, False, False, False, False
 
     # Create upper and lower ROI polygons
     combined_poly = shapely.ops.unary_union([jaw_poly, eyes_poly])
@@ -226,49 +208,32 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     upper_lower = combined_poly # combined instead of lower
 
 
-    
+    # Create full face ROI
+    n = 100
+    height = 150
+    x1, y1 = jaw_vertices[0]
+    x2, y2 = jaw_vertices[-1]
+    x_c, y_c = (x1 + x2)/2, (y1 + y2)/2
+    a, b = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)/2, height/2
+    angle = np.arctan2(y2 - y1, x2 - x1)
+    t = np.linspace(0, 2*np.pi, n)
+    ellipse = np.array([a*np.cos(t), b*np.sin(t)])
+    ellipse = ellipse + np.array([[x_c,y_c]]).T
+    R = np.array([[np.cos(angle), -np.sin(angle)],
+                  [np.sin(angle),  np.cos(angle)]])  
+    ellipse_rot = R @ ellipse
+    face_poly = shapely.geometry.Polygon(ellipse.T)
+    face_poly = shapely.affinity.scale(face_poly, xfact=1.02, yfact=1.02, zfact=1.02, origin='center')
+    full_face = shapely.ops.unary_union([face_poly, jaw_poly])
 
 
-
-
-
-    # upper_vertices = np.array(list(zip(*upper.exterior.coords.xy)))
-
-    
-
-    # Can probably be made more efficient
-    # Idea: make a split between left and right, delete lower half
-    #       of ellipse and find remaining lowest points (on both sides)
-    #       these can then later be used to find the "split point"
-    # centroid = upper.centroid
-    # left_max_y = -1e10
-    # right_max_y = -1e10
-    # upper_list = list()
-    # for row in upper_vertices:
-    #     if row[0] <= centroid.x:
-    #         if row[1] > left[1]-10:
-    #             continue
-    #         else:
-    #             if row[1] > left_max_y:
-    #                 left_max_y = row[1]
-    #     elif row[0] > centroid.x:
-    #         if row[1] > right[1]-10:
-    #             continue
-    #         else:
-    #             if row[1] < right_max_y:
-    #                 right_max_y = row[1]
-    #     upper_list.append(row)
-    
-    # upper_vertices = np.array(upper_list)
-    # mask = (upper_vertices[:, 0] < centroid.x) & (upper_vertices[:,1] == left_max_y)
-    # assert np.sum(mask) == 1
-    # index = np.where(mask==True)[0][0]
-
-    # upper_a = upper_vertices[:index+1,:]
-    # upper_c = upper_vertices[index+1:,:]
-    # upper_b = np.array([left,center,right])
-    # upper_vertices = np.vstack([upper_a, upper_b, upper_c])
-    # upper = shapely.geometry.Polygon(upper_vertices)
+    # Draw full face
+    poly = full_face
+    coordinates = list(zip(*poly.exterior.coords.xy))
+    for i in range(len(coordinates)-1):
+        start = coordinates[i]
+        stop = coordinates[i+1]
+        draw.line([start, stop], width=8, fill='green')
 
     # Draw polys
     for region in roi_mapping.keys():
@@ -294,6 +259,8 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
         start = coordinates[i]
         stop = coordinates[i+1]
         draw.line([start, stop], width=3, fill='red')
+
+
     
 
     p_fixation = shapely.geometry.Point([pos_x, pos_y])
@@ -303,12 +270,13 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     bool_mouth = 'mouth' in roi_mapping.keys() and p_fixation.intersects(roi_mapping['mouth']['intersected_poly'])
     bool_upper = p_fixation.intersects(upper)
     bool_lower = p_fixation.intersects(upper_lower) and not bool_upper
+    bool_full_face = p_fixation.intersects(full_face)
 
     fn_out = f'processed/{participant_id}/{fixation_id}/{frame_number}.png'
     os.makedirs(os.path.dirname(fn_out), exist_ok=True)
     pil_image.save(fn_out)
 
-    return bool_eyes, bool_nose, bool_mouth, bool_upper, bool_lower
+    return bool_eyes, bool_nose, bool_mouth, bool_upper, bool_lower, bool_full_face
 
 
 
@@ -354,18 +322,22 @@ def processFixation(row, video_path, df_conditions, pipnet, global_frame_start, 
 
     result_sequence = ['eyes', 'nose', 'mouth']
     result_sequence2 = ['upper', 'lower']
+    result_sequence3 = ['full_face']
     result_counts = [0, 0, 0]
     result_counts2 = [0, 0]
+    result_counts3 = [0]
     for current_frame_index in range(new_start_frame_index, new_end_frame_index+1):
         current_result = processFrame(pipnet, fixation_id, current_frame_index, video_path, norm_pos_x, norm_pos_y, df_conditions, participant_id)
         if current_result is not None:
-            bool_eyes, bool_nose, bool_mouth, bool_upper, bool_lower = current_result
+            bool_eyes, bool_nose, bool_mouth, bool_upper, bool_lower, bool_full_face = current_result
             result_counts[0] += bool_eyes
             result_counts[1] += bool_nose
             result_counts[2] += bool_mouth
 
             result_counts2[0] += bool_upper
             result_counts2[1] += bool_lower
+
+            result_counts3[0] += bool_full_face
 
     index_max = np.argmax(result_counts)
     if result_counts[index_max] == 0:
@@ -380,6 +352,14 @@ def processFixation(row, video_path, df_conditions, pipnet, global_frame_start, 
         row['AOI_upper_lower'] = 'none'
     else:
         row['AOI_upper_lower'] = result_sequence2[index_max]
+
+    # --
+
+    index_max = np.argmax(result_counts3)
+    if result_counts3[index_max] == 0:
+        row['AOI_full_face'] = 'none'
+    else:
+        row['AOI_full_face'] = result_sequence3[index_max]
 
     row['start_frame_index'] = new_start_frame_index
     row['end_frame_index'] = new_end_frame_index
