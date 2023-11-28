@@ -136,9 +136,15 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     mean_points = np.vstack([mean_left_eye, mean_right_eye, mean_nose, mean_mouth])
     landmarks = row['face_landmarks']
 
+    # Draw points
+    draw.ellipse((row['mean_left_eye'][0]-r, row['mean_left_eye'][1]-r, row['mean_left_eye'][0]+r, row['mean_left_eye'][1]+r), width=3, fill='red')
+    draw.ellipse((row['mean_right_eye'][0]-r, row['mean_right_eye'][1]-r, row['mean_right_eye'][0]+r, row['mean_right_eye'][1]+r), width=3, fill='red')
+    draw.ellipse((row['mean_nose'][0]-r, row['mean_nose'][1]-r, row['mean_nose'][0]+r, row['mean_nose'][1]+r), width=3, fill='red')
+    draw.ellipse((row['mean_mouth'][0]-r, row['mean_mouth'][1]-r, row['mean_mouth'][0]+r, row['mean_mouth'][1]+r), width=3, fill='red')
+
     # Voronoi
     voronoi_polys = list()
-
+    mean_points = mean_points
     vor = Voronoi(mean_points)
     regions, vertices = voronoi_finite_polygons_2d(vor, radius=1e4)
 
@@ -146,14 +152,7 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     max_x = image_width
     min_y = 0
     max_y = image_height
-
-    mins = np.tile((min_x, min_y), (vertices.shape[0], 1))
-    bounded_vertices = np.max((vertices, mins), axis=0)
-    maxs = np.tile((max_x, max_y), (vertices.shape[0], 1))
-    bounded_vertices = np.min((bounded_vertices, maxs), axis=0)
-
     box = shapely.geometry.Polygon([[min_x, min_y], [min_x, max_y], [max_x, max_y], [max_x, min_y]])
-
     for region in regions:
         polygon = vertices[region]
         # Clipping polygon
@@ -199,6 +198,15 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     #  https://github.com/JellinaP/faceMAP/issues/20
     dist = np.max(jaw_vertices[:,1]) - max(0, np.min(np.array(list(zip(*eyes_poly.exterior.coords.xy)))[:,1]))
     if dist < 100:
+        return False, False, False, False, False, False
+
+    if row['mean_right_eye'][0] - row['mean_left_eye'][0] < 30: # Probably faulty detections
+        return False, False, False, False, False, False
+
+    if row['mean_nose'][1] - row['mean_left_eye'][1] < 30: # Probably faulty detections
+        return False, False, False, False, False, False
+
+    if row['mean_nose'][1] - row['mean_right_eye'][1] < 30: # Probably faulty detections
         return False, False, False, False, False, False
 
     # Create upper and lower ROI polygons
@@ -270,7 +278,7 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     bool_mouth = 'mouth' in roi_mapping.keys() and p_fixation.intersects(roi_mapping['mouth']['intersected_poly'])
     bool_upper = p_fixation.intersects(upper)
     bool_lower = p_fixation.intersects(upper_lower) and not bool_upper
-    bool_full_face = p_fixation.intersects(full_face)
+    bool_full_face = p_fixation.intersects(full_face) or bool_eyes or bool_nose or bool_mouth or bool_upper or bool_lower
 
     fn_out = f'processed/{participant_id}/{fixation_id}/{frame_number}.png'
     os.makedirs(os.path.dirname(fn_out), exist_ok=True)

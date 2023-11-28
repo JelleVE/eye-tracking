@@ -3,8 +3,12 @@ name: publish
 on:
   push:
     branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    tags:
+      - 'v*'
+  #pull_request:
+  #  branches: [ "master" ]
+  #  tags:
+  #    - 'v*'
 
 jobs:
   build-and-publish:
@@ -20,7 +24,22 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Build and push the eyetracking application
-      run: |
-        docker build . --tag ghcr.io/jellinap/facemap:latest
-        docker push ghcr.io/jellinap/facemap:latest
+    - name: Build the Docker image
+      run: docker build . --tag facemap:${{ github.ref_name }}
+
+    - name: Push the latest Docker image
+      uses: docker/build-push-action@v2
+      with:
+        push: true
+        tags: ghcr.io/jellinap/facemap:latest
+          
+    - name: Push the Docker image with the release tag
+      uses: docker/build-push-action@v2
+      with:
+        push: true
+        tags: ghcr.io/jellinap/facemap:${{ github.ref_name}}
+
+    #- name: Build and push the eyetracking application
+    #  run: |
+    #    docker build . --tag ghcr.io/jellinap/facemap:latest
+    #    docker push ghcr.io/jellinap/facemap:latest
