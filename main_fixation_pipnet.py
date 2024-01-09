@@ -125,6 +125,7 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     assert len(rows) == 1
     row = rows.iloc[0]
     if row['face_present'] == False:
+        print('no face')
         return False, False, False, False, False, False # early stopping
 
 
@@ -200,14 +201,17 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
     if dist < 100:
         return False, False, False, False, False, False
 
-    if row['mean_right_eye'][0] - row['mean_left_eye'][0] < 30: # Probably faulty detections
+    if np.linalg.norm(row['mean_right_eye'] - row['mean_left_eye']) < 30: # Probably faulty detections
         return False, False, False, False, False, False
 
-    if row['mean_nose'][1] - row['mean_left_eye'][1] < 30: # Probably faulty detections
+    if np.cross(row['mean_right_eye']-row['mean_left_eye'],row['mean_nose']-row['mean_left_eye'])/np.linalg.norm(row['mean_right_eye']-row['mean_left_eye']) < 20: # distance from eye line to nose
         return False, False, False, False, False, False
 
-    if row['mean_nose'][1] - row['mean_right_eye'][1] < 30: # Probably faulty detections
-        return False, False, False, False, False, False
+    # if row['mean_nose'][1] - row['mean_left_eye'][1] < 30: # Probably faulty detections
+    #     return False, False, False, False, False, False
+
+    # if row['mean_nose'][1] - row['mean_right_eye'][1] < 30: # Probably faulty detections
+    #     return False, False, False, False, False, False
 
     # Create upper and lower ROI polygons
     combined_poly = shapely.ops.unary_union([jaw_poly, eyes_poly])
@@ -267,9 +271,6 @@ def processFrame(pipnet, fixation_id, frame_number, video, norm_pos_x, norm_pos_
         start = coordinates[i]
         stop = coordinates[i+1]
         draw.line([start, stop], width=3, fill='red')
-
-
-    
 
     p_fixation = shapely.geometry.Point([pos_x, pos_y])
 
@@ -382,7 +383,7 @@ def processFixations(video_path, df_fixations, df_conditions, pipnet, global_fra
 
     rows = list()
     for index,row in df_fixations.iterrows():
-        print(f'Processing fixation {index}')
+        print(f'Processing fixation {row["id"]}')
         rows.append(processFixation(row, video, df_conditions, pipnet, global_frame_start, global_frame_end, participant_id))
     rows = [row for row in rows if row is not None]
     df_result = pd.DataFrame(rows)
